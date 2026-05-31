@@ -47,6 +47,9 @@
   .btns{ display:flex; gap:10px; margin-top:18px; }
   .btns button{ flex:1; border:0; border-radius:12px; padding:15px; font-size:16px; font-weight:800; }
   #save{ background:var(--rot); color:#fff; } #cancel{ background:#eee; color:#333; }
+  #delete{ background:#7a1f1f; color:#fff; }
+  #status{ position:fixed; top:58px; left:50%; transform:translateX(-50%); z-index:900;
+           background:rgba(0,0,0,.7); color:#fff; font-size:12px; padding:4px 10px; border-radius:12px; display:none; }
   #pos{ font-size:13px; color:#666; margin-top:6px; }
   /* Toast */
   #toast{ position:fixed; left:50%; bottom:90px; transform:translateX(-50%); z-index:3000; background:#222; color:#fff;
@@ -67,6 +70,7 @@
 </div>
 
 <div id="map"></div>
+<div id="status"></div>
 
 <div id="cross">
   <svg width="44" height="44" viewBox="0 0 44 44">
@@ -87,12 +91,13 @@
 <!-- Erfassungs-Sheet -->
 <div id="sheet">
   <div id="panel">
-    <h2>Was erfassen?</h2>
+    <h2 id="sheetTitle">Was erfassen?</h2>
     <div class="grid" id="cats"></div>
     <div id="fields"></div>
     <div id="pos"></div>
     <div class="btns">
       <button id="cancel">Abbrechen</button>
+      <button id="delete" class="hidden">Löschen</button>
       <button id="save">In OSM speichern</button>
     </div>
   </div>

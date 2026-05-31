@@ -1,6 +1,6 @@
 /* Service Worker – cacht die App-Hülle für Offline-Start.
    Kartenkacheln und OSM-API werden NICHT gecacht (immer live). */
-const CACHE = "hydranten-erfasser-v2";
+const CACHE = "hydranten-erfasser-v3";
 const SHELL = [
   "./", "./index.html", "./app.js", "./manifest.webmanifest",
   "./icon-192.png", "./icon-512.png",
