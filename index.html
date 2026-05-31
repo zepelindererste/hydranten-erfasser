@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#b71c1c">
+<title>Hydranten-Erfasser</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  :root{ --rot:#b71c1c; --bg:#f4efe4; --txt:#222; }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; color:var(--txt); }
+  #map{ position:absolute; inset:0; }
+  /* Topbar */
+  #top{ position:fixed; top:0; left:0; right:0; z-index:1000; display:flex; align-items:center; gap:8px;
+        padding:10px 12px; padding-top:max(10px,env(safe-area-inset-top)); background:var(--rot); color:#fff; }
+  #top b{ font-size:16px; flex:1; }
+  #login{ background:#fff; color:var(--rot); border:0; border-radius:8px; padding:8px 12px; font-weight:700; font-size:14px; }
+  #who{ font-size:12px; opacity:.9; }
+  /* Fadenkreuz */
+  #cross{ position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:800; pointer-events:none; }
+  #cross svg{ display:block; }
+  /* Bottom controls */
+  #bottom{ position:fixed; left:0; right:0; bottom:0; z-index:1000;
+           padding:12px; padding-bottom:max(12px,env(safe-area-inset-bottom)); display:flex; gap:10px; }
+  .fab{ flex:1; border:0; border-radius:14px; padding:16px; font-size:17px; font-weight:800; color:#fff; background:var(--rot);
+        box-shadow:0 4px 14px rgba(0,0,0,.3); }
+  .fab.sec{ flex:0 0 58px; background:#0066cc; padding:0; font-size:24px; }
+  .fab.close{ flex:0 0 58px; background:#444; padding:0; font-size:22px; }
+  /* Sheet */
+  #sheet{ position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,.45); display:none; }
+  #sheet.open{ display:block; }
+  #panel{ position:absolute; left:0; right:0; bottom:0; background:#fff; border-radius:18px 18px 0 0;
+          max-height:88%; overflow:auto; padding:16px; padding-bottom:max(16px,env(safe-area-inset-bottom)); }
+  #panel h2{ margin:.2em 0 .6em; font-size:18px; }
+  .grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .cat{ border:2px solid #ddd; border-radius:12px; padding:14px 10px; text-align:center; font-weight:700; font-size:15px; background:#fafafa; }
+  .cat .ic{ font-size:26px; display:block; margin-bottom:4px; }
+  .cat.act{ border-color:var(--rot); background:#fff0f0; }
+  label{ display:block; font-size:13px; font-weight:600; margin:12px 0 4px; color:#555; }
+  input,select,textarea{ width:100%; padding:11px; border:1px solid #ccc; border-radius:10px; font-size:16px; }
+  .row{ display:flex; gap:10px; } .row>*{ flex:1; }
+  .btns{ display:flex; gap:10px; margin-top:18px; }
+  .btns button{ flex:1; border:0; border-radius:12px; padding:15px; font-size:16px; font-weight:800; }
+  #save{ background:var(--rot); color:#fff; } #cancel{ background:#eee; color:#333; }
+  #pos{ font-size:13px; color:#666; margin-top:6px; }
+  /* Toast */
+  #toast{ position:fixed; left:50%; bottom:90px; transform:translateX(-50%); z-index:3000; background:#222; color:#fff;
+          padding:12px 16px; border-radius:10px; font-size:14px; max-width:90%; text-align:center; display:none; box-shadow:0 4px 14px rgba(0,0,0,.4); }
+  #toast a{ color:#7fd1ff; }
+  #setup{ position:fixed; inset:0; z-index:4000; background:#fff; padding:24px; overflow:auto; display:none; }
+  #setup code{ background:#eee; padding:2px 6px; border-radius:4px; }
+  #setup input{ margin-top:6px; }
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+
+<div id="top">
+  <b>🚒 Hydranten-Erfasser</b>
+  <span id="who"></span>
+  <button id="login">Anmelden</button>
+</div>
+
+<div id="map"></div>
+
+<div id="cross">
+  <svg width="44" height="44" viewBox="0 0 44 44">
+    <circle cx="22" cy="22" r="6" fill="none" stroke="#b71c1c" stroke-width="3"/>
+    <line x1="22" y1="0"  x2="22" y2="12" stroke="#b71c1c" stroke-width="3"/>
+    <line x1="22" y1="32" x2="22" y2="44" stroke="#b71c1c" stroke-width="3"/>
+    <line x1="0"  y1="22" x2="12" y2="22" stroke="#b71c1c" stroke-width="3"/>
+    <line x1="32" y1="22" x2="44" y2="22" stroke="#b71c1c" stroke-width="3"/>
+  </svg>
+</div>
+
+<div id="bottom">
+  <button class="fab sec" id="gps" title="Mein Standort">📍</button>
+  <button class="fab" id="add">+ Hier erfassen</button>
+  <button class="fab close hidden" id="finish" title="Änderungssatz abschließen">✓</button>
+</div>
+
+<!-- Erfassungs-Sheet -->
+<div id="sheet">
+  <div id="panel">
+    <h2>Was erfassen?</h2>
+    <div class="grid" id="cats"></div>
+    <div id="fields"></div>
+    <div id="pos"></div>
+    <div class="btns">
+      <button id="cancel">Abbrechen</button>
+      <button id="save">In OSM speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Einrichtungs-Hinweis (wenn kein Client-ID) -->
+<div id="setup">
+  <h2>Einmalige Einrichtung</h2>
+  <p>Damit die App direkt in OpenStreetMap schreiben darf, brauchst du eine kostenlose
+     OAuth2-Registrierung mit deinem OSM-Konto:</p>
+  <ol style="line-height:1.6">
+    <li>Auf <a href="https://www.openstreetmap.org/oauth2/applications" target="_blank">openstreetmap.org/oauth2/applications</a> einloggen und <b>„Neue Anwendung registrieren"</b>.</li>
+    <li><b>Redirect URI</b> exakt eintragen:<br><code id="redir"></code></li>
+    <li>Häkchen setzen bei: <code>read_prefs</code> und <code>write_api</code>.</li>
+    <li>„Confidential application?" → <b>NICHT</b> ankreuzen (öffentliche App).</li>
+    <li>Die angezeigte <b>Client ID</b> hier einfügen:</li>
+  </ol>
+  <input id="cid" placeholder="Client ID hier einfügen">
+  <div class="btns">
+    <button id="cidsave" style="background:#b71c1c;color:#fff">Speichern &amp; starten</button>
+  </div>
+  <p style="color:#888;font-size:13px;margin-top:16px">Die Client ID wird nur lokal in diesem Browser gespeichert.</p>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
