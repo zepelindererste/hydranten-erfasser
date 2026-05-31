@@ -120,6 +120,12 @@ document.getElementById("save").onclick=async()=>{
 // ─── OSM-Upload (Changeset offen halten, am Ende schließen) ─────────────────────
 let currentChangeset=null;
 
+// XML-Sonderzeichen in Tag-Werten maskieren
+function esc(s){
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;")
+                  .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;");
+}
+
 async function ensureChangeset(){
   if(currentChangeset) return currentChangeset;
   const body=`<osm><changeset>
