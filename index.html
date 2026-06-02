@@ -48,6 +48,13 @@
   .btns button{ flex:1; border:0; border-radius:12px; padding:15px; font-size:16px; font-weight:800; }
   #save{ background:var(--rot); color:#fff; } #cancel{ background:#eee; color:#333; }
   #delete{ background:#7a1f1f; color:#fff; }
+  #sync{ background:#e8a800; color:#fff; border:0; border-radius:8px; padding:8px 10px; font-weight:700; font-size:13px; }
+  .chips{ display:flex; gap:8px; flex-wrap:wrap; margin-top:4px; }
+  .chip{ border:2px solid #ccc; background:#fafafa; border-radius:20px; padding:9px 15px; font-size:15px; font-weight:700; color:#333; }
+  .chip.act{ border-color:var(--rot); background:#fff0f0; color:var(--rot); }
+  .row2{ display:flex; gap:10px; margin-top:14px; }
+  .row2 button{ flex:1; border:0; border-radius:12px; padding:13px; font-size:15px; font-weight:700; }
+  #checked{ background:#2e7d32; color:#fff; }
   #status{ position:fixed; top:58px; left:50%; transform:translateX(-50%); z-index:900;
            background:rgba(0,0,0,.7); color:#fff; font-size:12px; padding:4px 10px; border-radius:12px; display:none; }
   #pos{ font-size:13px; color:#666; margin-top:6px; }
@@ -66,6 +73,7 @@
 <div id="top">
   <b>🚒 Hydranten-Erfasser</b>
   <span id="who"></span>
+  <button id="sync" class="hidden" title="Offline gespeicherte Einträge hochladen">⏳ 0</button>
   <button id="login">Anmelden</button>
 </div>
 
@@ -95,6 +103,9 @@
     <div class="grid" id="cats"></div>
     <div id="fields"></div>
     <div id="pos"></div>
+    <div class="row2">
+      <button id="checked" type="button" class="hidden">✓ Heute geprüft</button>
+    </div>
     <div class="btns">
       <button id="cancel">Abbrechen</button>
       <button id="delete" class="hidden">Löschen</button>
