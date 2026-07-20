@@ -6,7 +6,8 @@
 const CONFIG = {
   scopes:"read_prefs write_api", osmBase:"https://www.openstreetmap.org",
   apiBase:"https://api.openstreetmap.org/api/0.6", center:[51.700,14.41], zoom:12,
-  minLoadZoom:15, createdBy:"Hydranten-Erfasser 1.1",
+  minLoadZoom:15, createdBy:"Hydranten-Erfasser 1.2",
+  pmxApi:"https://api.panoramax.xyz/api",
 };
 const REDIRECT_URI = location.origin + location.pathname;
 document.getElementById("redir").textContent = REDIRECT_URI;
@@ -143,6 +144,7 @@ document.getElementById("add").onclick=()=>{
   document.querySelectorAll(".cat").forEach(x=>x.classList.remove("act")); fieldsEl.innerHTML="";
   captureLatLng=map.getCenter();
   posEl.textContent=`Position: ${captureLatLng.lat.toFixed(6)}, ${captureLatLng.lng.toFixed(6)} (Fadenkreuz)`;
+  document.getElementById("photoBox").classList.add("hidden");
   sheet.classList.add("open");
 };
 function openEdit(el,cid){
@@ -151,6 +153,7 @@ function openEdit(el,cid){
   document.getElementById("save").textContent="Änderung speichern";
   selectCat(catById(cid)||CATS[0], el.tags||{});
   posEl.innerHTML=`Position: ${el.lat.toFixed(6)}, ${el.lon.toFixed(6)} · <a href="${CONFIG.osmBase}/node/${el.id}" target="_blank">auf OSM</a>`;
+  renderPhotoBox(el.tags||{});
   sheet.classList.add("open");
 }
 document.getElementById("cancel").onclick=()=>sheet.classList.remove("open");
@@ -183,6 +186,135 @@ chkBtn.onclick=async()=>{
   const res=await commit([{t:"update",id:editEl.id,cat:chosen.id,fields:f}],"Prüfdatum aktualisiert");
   if(res!==false) sheet.classList.remove("open");
 };
+
+// ─── Foto (Panoramax) ──────────────────────────────────────────────────────────
+// Fotos gibt es nur im Bearbeiten-Modus (der OSM-Knoten muss schon existieren).
+// Der Foto-Bezug läuft ausschließlich über den OSM-Tag "panoramax" = <Bild-ID>.
+function pmxToken(){ return localStorage.getItem("wb_pmx_token")||""; }
+function thumbUrl(id){ return `${CONFIG.pmxApi}/pictures/${id}/thumb.jpg`; }
+
+function renderPhotoBox(tags){
+  const box=document.getElementById("photoBox"), thumb=document.getElementById("photoThumb"),
+        add=document.getElementById("photoAdd"), rep=document.getElementById("photoReplace"),
+        del=document.getElementById("photoDel"), hint=document.getElementById("photoHint");
+  box.classList.remove("hidden"); hint.textContent="";
+  const id=tags&&tags.panoramax;
+  if(id){
+    thumb.src=thumbUrl(id); thumb.classList.remove("hidden");
+    add.classList.add("hidden"); rep.classList.remove("hidden"); del.classList.remove("hidden");
+  } else {
+    thumb.classList.add("hidden"); thumb.removeAttribute("src");
+    add.classList.remove("hidden"); rep.classList.add("hidden"); del.classList.add("hidden");
+  }
+}
+
+document.getElementById("photoAdd").onclick   = ()=>startPhotoUpload();
+document.getElementById("photoReplace").onclick = ()=>startPhotoUpload();
+document.getElementById("photoDel").onclick = async ()=>{
+  if(!editEl) return;
+  if(!confirm("Foto wirklich vom Hydranten entfernen?")) return;
+  const hint=document.getElementById("photoHint"); hint.textContent="Entferne Foto-Verknüpfung …";
+  try{
+    await setPanoramaxTag(editEl.id, null);
+    editEl.tags = Object.assign({},editEl.tags); delete editEl.tags.panoramax;
+    renderPhotoBox(editEl.tags); toast("Foto entfernt ✓",4000);
+  }catch(e){ hint.textContent=""; toast("Fehler beim Entfernen: "+e.message,6000); }
+};
+
+const pmxCam=document.getElementById("pmxCam");
+function startPhotoUpload(){
+  if(!editEl){ toast("Bitte zuerst den Punkt speichern, dann Foto hinzufügen"); return; }
+  if(!pmxToken()){ document.getElementById("pmxSetup").style.display="block"; return; }
+  pmxCam.click();
+}
+pmxCam.onchange=async()=>{
+  const f=pmxCam.files&&pmxCam.files[0]; pmxCam.value=""; if(!f||!editEl) return;
+  const hint=document.getElementById("photoHint");
+  hint.textContent="Lade Foto hoch …";
+  try{
+    const picId=await uploadToPanoramax(f, editEl.lat, editEl.lon);
+    hint.textContent="Verknüpfe mit Hydrant …";
+    await setPanoramaxTag(editEl.id, picId);
+    editEl.tags=Object.assign({},editEl.tags,{panoramax:picId});
+    renderPhotoBox(editEl.tags);
+    toast("Foto gespeichert ✓",5000);
+  }catch(e){ hint.textContent=""; toast("Foto-Upload fehlgeschlagen: "+e.message,7000); }
+};
+
+async function pmxFetch(path,opts){
+  const r=await fetch(CONFIG.pmxApi+path,Object.assign({},opts,{
+    headers:Object.assign({"Authorization":"Bearer "+pmxToken()},(opts&&opts.headers)||{})
+  }));
+  if(!r.ok) throw new Error(`Panoramax ${r.status}: ${(await r.text()).slice(0,140)}`);
+  return r;
+}
+
+// Best-effort: sucht rekursiv nach einer UUID unter Schlüsseln, die auf eine Bild-ID hindeuten.
+// (Panoramax dokumentiert das genaue Antwortformat nicht öffentlich – daher robust statt starr.)
+function findPictureId(obj){
+  const uuidRe=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  let found=null;
+  (function walk(o){
+    if(found||!o||typeof o!=="object") return;
+    for(const k in o){
+      const v=o[k];
+      if(typeof v==="string" && uuidRe.test(v) && /pic|item/i.test(k)){ found=v; return; }
+      if(typeof v==="string" && /rel/i.test(k) && v==="item" && o.href){
+        const m=o.href.match(uuidRe); if(m){ found=m[0]; return; }
+      }
+      if(v && typeof v==="object") walk(v);
+      if(found) return;
+    }
+  })(obj);
+  return found;
+}
+
+async function uploadToPanoramax(file, lat, lon){
+  // 1) Upload-Set anlegen
+  const cs=await (await pmxFetch("/upload_sets",{method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({title:"Hydranten-Erfasser "+today(),estimated_nb_files:1})})).json();
+  const setId=cs.id;
+  // 2) Datei hochladen (Position/Zeit als Feld statt EXIF)
+  const fd=new FormData();
+  fd.append("file",file,"hydrant.jpg");
+  fd.append("override_latitude",String(lat));
+  fd.append("override_longitude",String(lon));
+  fd.append("override_capture_time",new Date().toISOString());
+  const upRes=await (await pmxFetch(`/upload_sets/${setId}/files`,{method:"POST",body:fd})).json();
+  // 3) Set abschließen
+  await pmxFetch(`/upload_sets/${setId}/complete`,{method:"POST"});
+  // 4) Bild-ID ermitteln – ggf. etwas warten, da Verarbeitung asynchron läuft
+  let picId=findPictureId(upRes);
+  for(let i=0;i<8 && !picId;i++){
+    await new Promise(r=>setTimeout(r,1500));
+    const files=await (await pmxFetch(`/upload_sets/${setId}/files`)).json();
+    picId=findPictureId(files);
+  }
+  if(!picId) throw new Error("Foto hochgeladen, aber Bild-ID nicht gefunden (bitte in Panoramax prüfen)");
+  return picId;
+}
+
+// Setzt/entfernt NUR den panoramax-Tag, alle anderen Tags bleiben unverändert.
+async function setPanoramaxTag(nodeId, picIdOrNull){
+  const cur=await fetchNodeFull(nodeId);
+  const tags=Object.assign({},cur.tags);
+  if(picIdOrNull) tags.panoramax=picIdOrNull; else delete tags.panoramax;
+  const cs=await createChangeset();
+  const body=`<osm><node id="${nodeId}" version="${cur.version}" changeset="${cs}" lat="${cur.lat}" lon="${cur.lon}">${tagsXml(tags)}</node></osm>`;
+  await apiFetch(`/node/${nodeId}`,"PUT",body);
+  await apiFetch(`/changeset/${cs}/close`,"PUT","");
+}
+
+document.getElementById("pmxTokSave").onclick=()=>{
+  const v=document.getElementById("pmxTok").value.trim();
+  if(!v){ toast("Bitte Token eingeben"); return; }
+  localStorage.setItem("wb_pmx_token",v);
+  document.getElementById("pmxSetup").style.display="none";
+  toast("Panoramax-Token gespeichert ✓");
+  pmxCam.click();
+};
+document.getElementById("pmxTokCancel").onclick=()=>{ document.getElementById("pmxSetup").style.display="none"; };
 
 // ─── OSM-Operationen ───────────────────────────────────────────────────────────
 function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;"); }

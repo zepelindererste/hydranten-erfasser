@@ -55,6 +55,12 @@
   .row2{ display:flex; gap:10px; margin-top:14px; }
   .row2 button{ flex:1; border:0; border-radius:12px; padding:13px; font-size:15px; font-weight:700; }
   #checked{ background:#2e7d32; color:#fff; }
+  #photoBox{ margin-top:14px; }
+  #photoThumb{ display:block; max-width:100%; border-radius:10px; margin-bottom:8px; border:1px solid #ddd; }
+  .row3{ display:flex; gap:8px; }
+  .row3 button{ flex:1; border:0; border-radius:10px; padding:11px; font-size:13px; font-weight:700; }
+  #photoAdd{ background:#0066cc; color:#fff; } #photoReplace{ background:#8a6d00; color:#fff; } #photoDel{ background:#7a1f1f; color:#fff; }
+  #photoHint{ font-size:12px; color:#888; margin-top:4px; }
   #status{ position:fixed; top:58px; left:50%; transform:translateX(-50%); z-index:900;
            background:rgba(0,0,0,.7); color:#fff; font-size:12px; padding:4px 10px; border-radius:12px; display:none; }
   #pos{ font-size:13px; color:#666; margin-top:6px; }
@@ -106,6 +112,16 @@
     <div class="row2">
       <button id="checked" type="button" class="hidden">✓ Heute geprüft</button>
     </div>
+    <div id="photoBox" class="hidden">
+      <label>Foto</label>
+      <img id="photoThumb" class="hidden">
+      <div class="row3">
+        <button id="photoAdd" type="button" class="hidden">📷 Foto hinzufügen</button>
+        <button id="photoReplace" type="button" class="hidden">🔄 Ersetzen</button>
+        <button id="photoDel" type="button" class="hidden">🗑️ Entfernen</button>
+      </div>
+      <div id="photoHint"></div>
+    </div>
     <div class="btns">
       <button id="cancel">Abbrechen</button>
       <button id="delete" class="hidden">Löschen</button>
@@ -131,6 +147,28 @@
     <button id="cidsave" style="background:#b71c1c;color:#fff">Speichern &amp; starten</button>
   </div>
   <p style="color:#888;font-size:13px;margin-top:16px">Die Client ID wird nur lokal in diesem Browser gespeichert.</p>
+</div>
+
+<input id="pmxCam" type="file" accept="image/*" capture="environment" style="display:none">
+
+<!-- Panoramax-Token-Einrichtung (einmalig) -->
+<div id="pmxSetup" style="position:fixed;inset:0;z-index:4000;background:#fff;padding:24px;overflow:auto;display:none">
+  <h2>Foto-Upload einrichten (Panoramax)</h2>
+  <p>Fotos werden auf <b>Panoramax</b> gespeichert (freie, offene Foto-Plattform für Straßenbilder,
+     wie OpenStreetMap – aber für Fotos) und mit dem Hydranten verknüpft.</p>
+  <ol style="line-height:1.6">
+    <li>Auf <a href="https://panoramax.xyz" target="_blank">panoramax.xyz</a> mit deinem <b>OpenStreetMap-Konto</b> anmelden.</li>
+    <li>Im Konto-Bereich (<a href="https://panoramax.xyz/account/tokens" target="_blank">Account → Tokens</a>) einen <b>neuen API-Token</b> erzeugen.</li>
+    <li>Den Token hier einfügen:</li>
+  </ol>
+  <input id="pmxTok" placeholder="Panoramax-Token hier einfügen">
+  <div class="btns">
+    <button id="pmxTokSave" style="background:#0066cc;color:#fff">Speichern</button>
+  </div>
+  <div class="btns">
+    <button id="pmxTokCancel" style="background:#eee;color:#333">Abbrechen</button>
+  </div>
+  <p style="color:#888;font-size:13px;margin-top:16px">Der Token wird nur lokal in diesem Browser gespeichert.</p>
 </div>
 
 <div id="toast"></div>
